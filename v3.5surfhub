@@ -1,0 +1,202 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local silentAimActive = true
+local aimRange = math.huge -- Infinite range
+local fovRadius = 9000 -- Larger FOV for more precise aiming
+local fovCircle = nil
+local aimOffset = Vector3.new(0, 1, 0) -- Slightly above the head
+local armVibrationEnabled = true
+
+-- Create the FOV circle
+local function createFovCircle()
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Radius = fovRadius
+    fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    fovCircle.Thickness = 2
+    fovCircle.Color = Color3.fromRGB(0, 255, 0) -- Green color for FOV circle
+    fovCircle.Transparency = 0.5
+    fovCircle.Visible = true
+
+    -- Update the position of the FOV circle if the screen size changes
+    RunService.RenderStepped:Connect(function()
+        fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    end)
+end
+
+-- Function to check if a target is within the FOV
+local function isWithinFov(targetPosition)
+    local screenPoint = Camera:WorldToViewportPoint(targetPosition)
+    local screenDistance = (Vector2.new(screenPoint.X, screenPoint.Y) - fovCircle.Position).Magnitude
+    return screenDistance <= fovRadius
+end
+
+-- Function to get the nearest target's head
+local function getNearestHead()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    -- Loop through all players and find the nearest one within range and FOV
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            -- Calculate distance to the player's HumanoidRootPart
+            local distance = (player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+            if distance < shortestDistance and isWithinFov(player.Character.Head.Position) then
+                shortestDistance = distance
+                closestPlayer = player
+            end
+        end
+    end
+
+    -- Return the target player's head part if found
+    if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+        return closestPlayer.Character.Head
+    end
+    return nil
+end
+
+-- Smooth camera adjustment with bullet prediction for sniper
+local function adjustCameraToTarget(targetPosition)
+    local bulletSpeed = 300 -- Adjust this based on the sniper's bullet speed
+    local travelTime = (targetPosition - Camera.CFrame.Position).Magnitude / bulletSpeed
+    local predictedPosition = targetPosition + (Players.LocalPlayer.Character.HumanoidRootPart.Velocity * travelTime) + aimOffset
+
+    local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local goal = {CFrame = CFrame.new(Camera.CFrame.Position, predictedPosition)}
+
+    local tween = TweenService:Create(Camera, tweenInfo, goal)
+    tween:Play()
+
+    -- Add a slight delay to account for bullet travel time
+    wait(travelTime)
+end
+
+-- Toggle aimbot on and off with "Q" key
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.Q then
+        silentAimActive = not silentAimActive
+    end
+end)
+
+-- Silent aim functionality with headshots
+RunService.RenderStepped:Connect(function()
+    if silentAimActive then
+        local targetHead = getNearestHead()  -- Get the nearest head
+
+        if targetHead then
+            -- Smoothly adjust the camera's CFrame to the target's head position
+            adjustCameraToTarget(targetHead.Position)
+
+            -- Fire the attack (assuming the remote event is correct)
+            -- Make sure `ReplicatedStorage.Remotes.Attack` exists and works
+            local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attack")
+            if remote then
+                remote:FireServer(targetHead)
+            end
+
+            -- Create super-fast arm vibration effect
+            if armVibrationEnabled then
+                local humanoid = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    local vibrationInfo = TweenInfo.new(10000.01, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true)
+                    local vibrationGoal = {C0 = humanoid.RootPart.CFrame * CFrame.new(math.random(-1,1)*0.1, math.random(-1,1)*0.1, math.random(-1,1)*0.1)}
+                    
+                    local vibrationTween = TweenService:Create(humanoid.RootPart, vibrationInfo, vibrationGoal)
+                    vibrationTween:Play()
+                end
+            end
+        end
+    end
+end)
+
+-- Disable manual camera movement when aimbot is active
+UserInputService.InputChanged:Connect(function(input)
+    if silentAimActive and input.UserInputType == Enum.UserInputType.MouseMovement then
+        input:CaptureInput() -- Prevent manual camera movement
+    end
+end)
+
+-- Initialize the FOV circle when the script starts
+createFovCircle()
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
+local silentAimActive = true
+local aimRange = 50 -- Range for the silent aim
+local fovRadius = 100 -- Radius of the FOV circle
+local fovCircle = nil
+
+-- Create the FOV circle
+local function createFovCircle()
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Radius = fovRadius
+    fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    fovCircle.Thickness = 2
+    fovCircle.Color = Color3.fromRGB(0, 255, 0) -- Green color for FOV circle
+    fovCircle.Transparency = 0.5
+    fovCircle.Visible = true
+
+    -- Update the position of the FOV circle if the screen size changes
+    RunService.RenderStepped:Connect(function()
+        fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    end)
+end
+
+-- Function to get the nearest target's head
+local function getNearestHead()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    -- Loop through all players and find the nearest one within range
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            -- Calculate distance to the player's HumanoidRootPart
+            local distance = (player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+            if distance < shortestDistance and distance <= aimRange then
+                shortestDistance = distance
+                closestPlayer = player
+            end
+        end
+    end
+
+    -- Return the target player's head part if found
+    if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+        return closestPlayer.Character.Head
+    end
+    return nil
+end
+
+-- Silent aim functionality with headshots
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    -- When the left mouse button is pressed
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and silentAimActive then
+        local targetHead = getNearestHead()  -- Get the nearest head
+
+        if targetHead then
+            -- Smoothly adjust the camera's CFrame to the target's head position
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
+
+            -- Fire the attack (assuming the remote event is correct)
+            -- Make sure `ReplicatedStorage.Remotes.Attack` exists and works
+            local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Attack")
+            if remote then
+                remote:FireServer(targetHead)
+            end
+        end
+    end
+end)
+
+-- Initialize the FOV circle when the script starts
+createFovCircle()
