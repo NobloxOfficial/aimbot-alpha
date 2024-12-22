@@ -61,7 +61,7 @@ end
 
 -- Smooth camera adjustment with bullet prediction for sniper
 local function adjustCameraToTarget(targetPosition)
-    local bulletSpeed = 300 -- Adjust this based on the sniper's bullet speed
+    local bulletSpeed = 900 -- Adjust this based on the sniper's bullet speed
     local travelTime = (targetPosition - Camera.CFrame.Position).Magnitude / bulletSpeed
     local predictedPosition = targetPosition + (Players.LocalPlayer.Character.HumanoidRootPart.Velocity * travelTime) + aimOffset
 
